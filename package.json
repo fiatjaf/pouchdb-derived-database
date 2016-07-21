@@ -3,17 +3,35 @@
   "version": "0.0.2",
   "description": "A utility to make it easy to create PouchDBs whose documents arbitrarily reflect those on a primary database.",
   "main": "./lib/index.js",
-  "keywords": [],
-  "author": "Giovanni T. Parra",
+  "keywords": [
+    "pouchdb",
+    "pouch",
+    "derived",
+    "reflect",
+    "dependent",
+    "secondary",
+    "persistent",
+    "index",
+    "mapreduce",
+    "map",
+    "reduce",
+    "derivable",
+    "observable",
+    "state",
+    "reactive"
+  ],
+  "author": "fiatjaf",
   "license": "Apache-2.0",
-  "repository": "https://github.com/fiatjaf/pouchdb-derived-database",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fiatjaf/pouchdb-derived-database.git"
+  },
   "jsnext:main": "./src/index.js",
   "files": [
     "lib",
     "src"
   ],
   "dependencies": {
-    "argsarray": "*",
     "pouchdb-mapreduce-utils": "^5.4.5",
     "pouchdb-promise": "*",
     "pouchdb-utils": "^5.4.5"
@@ -22,12 +40,19 @@
     "./lib/index.js": "./lib/index-browser.js"
   },
   "devDependencies": {
+    "browserify": "^13.0.1",
     "memdown": "^1.2.0",
     "pouchdb-adapter-leveldb": "^5.4.5",
     "pouchdb-core": "^5.4.5",
     "tape": "^4.6.0"
   },
   "scripts": {
-    "test": "tape test.js"
-  }
+    "test": "tape test.js",
+    "build": "mkdir -p lib/ && browserify src/index.js > lib/index.js",
+    "prepublish": "npm run build"
+  },
+  "bugs": {
+    "url": "https://github.com/fiatjaf/pouchdb-derived-database/issues"
+  },
+  "homepage": "https://github.com/fiatjaf/pouchdb-derived-database#readme"
 }
