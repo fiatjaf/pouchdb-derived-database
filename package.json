@@ -1,7 +1,7 @@
 {
   "name": "pouchdb-derived-database",
-  "version": "0.0.1",
-  "description": "PouchDB plugin to implement a derived database.",
+  "version": "0.0.2",
+  "description": "A utility to make it easy to create PouchDBs whose documents arbitrarily reflect those on a primary database.",
   "main": "./lib/index.js",
   "keywords": [],
   "author": "Giovanni T. Parra",
@@ -13,8 +13,9 @@
     "src"
   ],
   "dependencies": {
+    "argsarray": "*",
     "pouchdb-mapreduce-utils": "^5.4.5",
-    "pouchdb-promise": "^5.4.5",
+    "pouchdb-promise": "*",
     "pouchdb-utils": "^5.4.5"
   },
   "browser": {

@@ -2,7 +2,11 @@ var Promise = require('pouchdb-promise')
 var promisedCallback = require('pouchdb-mapreduce-utils').promisedCallback
 var upsert = require('pouchdb-utils').upsert
 
-module.exports.setDerived = setDerived
+var TaskQueue = require('./taskqueue')
+
+module.exports = {
+  setDerived: setDerived
+}
 
 function setDerived (name, fun, callback) {
   var db = this
@@ -14,7 +18,8 @@ function setDerived (name, fun, callback) {
   var promise = Promise.resolve().then(function () {
     return createDerived(name, db, fun)
       .then(function (derived) {
-        startListening(derived)
+        var stop = startListening(derived)
+        derived.stop = stop
         return derived
       })
   })
@@ -28,24 +33,27 @@ function startListening (derived) {
   var currentSeq = derived.seq || 0
   var queue = new TaskQueue()
 
-  derived.sourceDB.changes({
+  var changes = derived.sourceDB.changes({
     include_docs: true,
     since: currentSeq,
     live: true
   }).on('change', function (change) {
     if (change.doc._id[0] !== '_') {
       queue.add(function tryFun () {
-        return derived.fun.call(null, {
+        var ret = derived.fun.call(null, {
           change: change,
-          derivedDB: derived.db
+          db: derived.db
         })
-        .catch(function errorOnFun (err) {
+
+        ret = ret && ret.then ? ret : Promise.resolve()
+        return ret.catch(function errorOnFun (err) {
           console.log(err)
           console.log(err.stack)
         })
         .then(function updateSeq () {
           return upsert(derived.db, '_local/lastSeq', function (doc) {
             doc.seq = change.seq
+            return doc
           })
         })
       })
@@ -54,6 +62,8 @@ function startListening (derived) {
     console.log(err)
     console.log(err.stack)
   })
+
+  return changes.cancel.bind(changes)
 }
 
 function createDerived (name, sourceDB, fun) {
@@ -79,21 +89,4 @@ function createDerived (name, sourceDB, fun) {
       return derived
     })
   })
-}
-
-function TaskQueue () {
-  this.promise = Promise.resolve()
-}
-TaskQueue.prototype.add = function (task) {
-  this.promise = this.promise.catch(function (err) {
-    console.log(err)
-    console.log(err.stack)
-  }).then(function () {
-    return task()
-  })
-
-  return this.promise
-}
-TaskQueue.prototype.finish = function () {
-  return this.promise
 }

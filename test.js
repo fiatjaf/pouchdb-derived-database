@@ -24,14 +24,14 @@ var docs = [
 ]
 
 test('basic', function (db, t) {
+  t.plan(10)
   var derivedDB
 
   db.bulkDocs(docs)
     .then(() => {
       return db.setDerived('sum', function derivator (params) {
-        var ddb = params.derivedDB
         var groupName = params.change.doc.group
-        return upsert(ddb, groupName, (doc) => {
+        return upsert(params.db, groupName, (doc) => {
           doc.values = doc.values || []
           doc.values.push(params.change.doc.val)
           doc.sum = doc.values.reduce((a, b) => a + b, 0)
@@ -72,6 +72,117 @@ test('basic', function (db, t) {
       t.equals(accents._rev.split('-')[0], '1', 'accents document exists')
       t.equals(accents.sum, 23, 'accents document has correct sum')
       t.end()
+    })
+    .catch(err => {
+      console.log(err)
+      console.log(err.stack)
+      t.fail()
+    })
+})
+
+test('access-as-normal-db', function (db, t) {
+  t.plan(2)
+
+  db.bulkDocs(docs)
+    .then(() =>
+      db.setDerived('all-changes', function derivator (params) {
+        return upsert(params.db, 'seq-' + params.change.seq, function (doc) {
+          doc._id = 'seq-' + params.change.seq
+          doc.change = params.change
+          return doc
+        })
+      })
+    )
+    .then(derived => derived.db)
+    .then(any => new Promise(function (fulfill) { setTimeout(() => fulfill(any), 200) }))
+    .then((ddb) => {
+      var ddbAlso = new PouchDB('all-changes', {db: require('memdown')})
+      return Promise.all([
+        ddb.allDocs({include_docs: true}),
+        ddbAlso.allDocs({include_docs: true})
+      ])
+    })
+    .then(resp => {
+      t.deepEqual(resp[0], resp[1], 'opening the derived db with the PouchDB constructor works')
+      t.equals(resp[0].rows.length, 6, 'correct number of documents in derived db')
+    })
+    .catch(err => {
+      console.log(err)
+      console.log(err.stack)
+      t.fail()
+    })
+})
+
+test('destroy', function (db, t) {
+  t.plan(1)
+
+  db.setDerived('anything', function derivator (params) { /* does nothing */ })
+    .then(derived => derived.db)
+    .then(ddb => {
+      ddb.on('destroyed', function () {
+        t.equal(1, 1, 'derived db is destroyed when the primary db is destroyed')
+        t.end()
+      })
+      return db.destroy()
+    })
+})
+
+test('stop-and-continue', function (db, t) {
+  t.plan(6)
+
+  var ddb = new PouchDB('stats', {db: require('memdown')})
+  var derivator = function (params) {
+    return Promise.all([
+      upsert(params.db, 'sum', function (doc) {
+        doc.val = doc.val || 0
+        doc.val -= params.change.doc._rev.slice(0, 2) !== '1-' ? params.change.doc.val : 0
+        if (!params.change.deleted) {
+          doc.val += params.change.doc.val
+        }
+        return doc
+      }),
+      upsert(params.db, 'count', function (doc) {
+        doc.val = doc.val || 0
+        if (params.change.deleted) {
+          doc.val -= 1
+        } else if (params.change.doc._rev.slice(0, 2) === '1-') {
+          doc.val += 1
+        }
+        return doc
+      })
+    ])
+  }
+  var stop
+
+  db.on('change', console.log.bind(console, 'CHANGE'))
+
+  db.setDerived('stats', derivator)
+    .then(derived => {
+      stop = derived.stop
+    })
+    .then(() => db.post({val: 7}))
+    .then(any => new Promise(function (fulfill) { setTimeout(() => fulfill(any), 200) }))
+    .then(() => ddb.allDocs({include_docs: true}))
+    .then(res => {
+      t.equals(res.rows[0].doc._id, 'count', 'derivation is working')
+      t.equals(res.rows[0].doc.val, 1)
+      t.equals(res.rows[1].doc._id, 'sum')
+      t.equals(res.rows[1].doc.val, 7)
+
+      stop()
+      return db.post({val: 12})
+    })
+    .then(any => new Promise(function (fulfill) { setTimeout(() => fulfill(any), 200) }))
+    .then(() => ddb.get('count'))
+    .then(count => {
+      t.equals(count.val, 1, 'derived db was not updated after derivation was stopped.')
+
+      return db.setDerived('stats', derivator)
+    })
+    .then(any => new Promise(function (fulfill) { setTimeout(() => fulfill(any), 200) }))
+    .then(() => ddb.get('count'))
+    .then(count => {
+      t.equals(count.val, 2, 'derived db was resumed after derivation was set again')
     })
     .catch(err => {
       console.log(err)
