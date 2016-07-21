@@ -1,0 +1,32 @@
+{
+  "name": "pouchdb-derived-database",
+  "version": "0.0.1",
+  "description": "PouchDB plugin to implement a derived database.",
+  "main": "./lib/index.js",
+  "keywords": [],
+  "author": "Giovanni T. Parra",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/fiatjaf/pouchdb-derived-database",
+  "jsnext:main": "./src/index.js",
+  "files": [
+    "lib",
+    "src"
+  ],
+  "dependencies": {
+    "pouchdb-mapreduce-utils": "^5.4.5",
+    "pouchdb-promise": "^5.4.5",
+    "pouchdb-utils": "^5.4.5"
+  },
+  "browser": {
+    "./lib/index.js": "./lib/index-browser.js"
+  },
+  "devDependencies": {
+    "memdown": "^1.2.0",
+    "pouchdb-adapter-leveldb": "^5.4.5",
+    "pouchdb-core": "^5.4.5",
+    "tape": "^4.6.0"
+  },
+  "scripts": {
+    "test": "tape test.js"
+  }
+}
